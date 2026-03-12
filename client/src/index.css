@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* 최소 기본 스타일 (Tailwind base 위에 약간만) */
+html, body {
+  height: 100%;
+}
+body {
+  margin: 0;
+}
