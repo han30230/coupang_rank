@@ -15,6 +15,16 @@ COUPANG_ACCESS_KEY=...
 COUPANG_SECRET_KEY=...
 COUPANG_SUB_ID=
 PORT=3025
+
+# KPI Thresholds (선택)
+KPI_OUTBOUND_RATE_GOOD=8
+KPI_OUTBOUND_RATE_WARN=4
+KPI_RECIRCULATION_RATE_GOOD=20
+KPI_RECIRCULATION_RATE_WARN=10
+KPI_OUTBOUND_PER_SESSION_GOOD=0.3
+KPI_OUTBOUND_PER_SESSION_WARN=0.15
+KPI_SIGNIFICANCE_PV_HIGH=500
+KPI_SIGNIFICANCE_PV_MEDIUM=200
 ```
 
 ## Run (dev)
@@ -32,4 +42,6 @@ npm run dev
 ## Notes
 - `.env`는 `.gitignore`에 포함되어 커밋되지 않습니다.
 - SQLite DB 파일은 `server/data.sqlite`로 생성됩니다(로컬 개발용).
+- 이벤트 대시보드는 `/admin/events`에서 확인할 수 있습니다.
+- CSV 다운로드: `/api/events/export.csv?rangeHours=24&limit=10000`
 

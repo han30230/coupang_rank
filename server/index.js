@@ -18,10 +18,42 @@ const {
   insertPriceSnapshot,
   getLatestTwoSnapshots,
   getPriceHistory,
+  insertUiEvent,
+  getUiEventCounts,
+  getUiEventVariantCounts,
+  getRecentUiEvents,
+  getUiKpi,
+  getUiEventDailyTrend,
+  getUiEventsForExport,
+  getAdminActionImpact,
 } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3025;
+
+function toNumberOrDefault(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function getKpiThresholds() {
+  return {
+    outboundRateGood: toNumberOrDefault(process.env.KPI_OUTBOUND_RATE_GOOD, 8),
+    outboundRateWarn: toNumberOrDefault(process.env.KPI_OUTBOUND_RATE_WARN, 4),
+    recirculationRateGood: toNumberOrDefault(process.env.KPI_RECIRCULATION_RATE_GOOD, 20),
+    recirculationRateWarn: toNumberOrDefault(process.env.KPI_RECIRCULATION_RATE_WARN, 10),
+    outboundPerSessionGood: toNumberOrDefault(process.env.KPI_OUTBOUND_PER_SESSION_GOOD, 0.3),
+    outboundPerSessionWarn: toNumberOrDefault(process.env.KPI_OUTBOUND_PER_SESSION_WARN, 0.15),
+    significancePvHigh: toNumberOrDefault(process.env.KPI_SIGNIFICANCE_PV_HIGH, 500),
+    significancePvMedium: toNumberOrDefault(process.env.KPI_SIGNIFICANCE_PV_MEDIUM, 200),
+  };
+}
+
+function getThresholdsFingerprint(thresholds) {
+  return JSON.stringify(thresholds);
+}
+
+const serverBootedAt = Date.now();
 
 // CORS: 개발 시 클라이언트(Vite 등)에서 API 호출 허용
 app.use(cors());
@@ -203,6 +235,154 @@ app.post('/api/ingestDisplayedProducts', (req, res) => {
     ingested += 1;
   }
   res.json({ success: true, ingested });
+});
+
+/**
+ * POST /api/events
+ * body: { eventName, pagePath, sessionId, variant, params }
+ */
+app.post('/api/events', (req, res) => {
+  const eventName = String(req.body?.eventName || '').trim();
+  if (!eventName) {
+    res.status(400).json({ success: false, error: 'eventName is required' });
+    return;
+  }
+  try {
+    insertUiEvent(eventName, {
+      pagePath: req.body?.pagePath || '',
+      sessionId: req.body?.sessionId || '',
+      variant: req.body?.variant || '',
+      params: req.body?.params || {},
+    });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[Events] insert failed:', e.message);
+    res.status(500).json({ success: false, error: 'failed to store event' });
+  }
+});
+
+/**
+ * GET /api/events/summary?rangeHours=24&limit=30
+ */
+app.get('/api/events/summary', (req, res) => {
+  const rangeHours = Math.max(1, Math.min(Number(req.query.rangeHours) || 24, 24 * 30));
+  const limit = Math.max(1, Math.min(Number(req.query.limit) || 30, 200));
+  const items = getUiEventCounts(rangeHours, limit);
+  res.json({ success: true, items });
+});
+
+/**
+ * GET /api/events/summary-by-variant?rangeHours=24&limit=200
+ */
+app.get('/api/events/summary-by-variant', (req, res) => {
+  const rangeHours = Math.max(1, Math.min(Number(req.query.rangeHours) || 24, 24 * 30));
+  const limit = Math.max(1, Math.min(Number(req.query.limit) || 200, 1000));
+  const items = getUiEventVariantCounts(rangeHours, limit);
+  res.json({ success: true, items });
+});
+
+/**
+ * GET /api/events/recent?limit=100
+ */
+app.get('/api/events/recent', (req, res) => {
+  const limit = Math.max(1, Math.min(Number(req.query.limit) || 100, 500));
+  const items = getRecentUiEvents(limit).map((row) => ({
+    ...row,
+    params: (() => {
+      try {
+        return row.payload ? JSON.parse(row.payload) : {};
+      } catch {
+        return {};
+      }
+    })(),
+  }));
+  res.json({ success: true, items });
+});
+
+/**
+ * GET /api/events/kpi?rangeHours=24
+ */
+app.get('/api/events/kpi', (req, res) => {
+  const rangeHours = Math.max(1, Math.min(Number(req.query.rangeHours) || 24, 24 * 30));
+  const result = getUiKpi(rangeHours);
+  res.json({ success: true, thresholds: getKpiThresholds(), ...result });
+});
+
+/**
+ * GET /api/events/config
+ */
+app.get('/api/events/config', (req, res) => {
+  const thresholds = getKpiThresholds();
+  res.json({
+    success: true,
+    thresholds,
+    fingerprint: getThresholdsFingerprint(thresholds),
+    loadedAt: serverBootedAt,
+  });
+});
+
+/**
+ * GET /api/events/trend?days=7
+ */
+app.get('/api/events/trend', (req, res) => {
+  const days = Math.max(1, Math.min(Number(req.query.days) || 7, 90));
+  const items = getUiEventDailyTrend(days);
+  res.json({ success: true, items });
+});
+
+/**
+ * GET /api/events/export.csv?rangeHours=24&limit=5000
+ */
+app.get('/api/events/export.csv', (req, res) => {
+  const rangeHours = Math.max(1, Math.min(Number(req.query.rangeHours) || 24, 24 * 30));
+  const limit = Math.max(1, Math.min(Number(req.query.limit) || 5000, 20000));
+  const rows = getUiEventsForExport(rangeHours, limit);
+
+  const escapeCsv = (v) => {
+    const s = String(v ?? '');
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const header = ['id', 'createdAt', 'createdAtIso', 'eventName', 'pagePath', 'sessionId', 'variant', 'payload'];
+  const lines = [header.join(',')];
+  for (const row of rows) {
+    const line = [
+      row.id,
+      row.createdAt,
+      new Date(Number(row.createdAt)).toISOString(),
+      row.eventName,
+      row.pagePath,
+      row.sessionId,
+      row.variant,
+      row.payload || '{}',
+    ].map(escapeCsv).join(',');
+    lines.push(line);
+  }
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="events_${rangeHours}h.csv"`);
+  res.send(lines.join('\n'));
+});
+
+/**
+ * GET /api/events/admin-action-impact?action=open_variant_A&windowHours=24
+ */
+app.get('/api/events/admin-action-impact', (req, res) => {
+  const action = String(req.query.action || '').trim();
+  const windowHours = Math.max(1, Math.min(Number(req.query.windowHours) || 24, 24 * 7));
+  if (!action) {
+    res.status(400).json({ success: false, error: 'action is required' });
+    return;
+  }
+  const impact = getAdminActionImpact(action, windowHours);
+  if (!impact) {
+    res.json({ success: true, found: false });
+    return;
+  }
+  res.json({ success: true, found: true, impact });
 });
 
 // SPA: 빌드된 클라이언트 라우팅 (dist 있을 때만)
