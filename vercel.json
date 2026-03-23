@@ -2,5 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm install && cd client && npm install",
   "buildCommand": "cd client && npm run build",
-  "outputDirectory": "client/dist"
+  "outputDirectory": "client/dist",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/[...all]"
+    }
+  ]
 }
