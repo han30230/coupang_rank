@@ -21,7 +21,7 @@ const {
 } = require('./db');
 
 const app = express();
-const PORT = process.env.PORT || 3015;
+const PORT = process.env.PORT || 3025;
 
 // CORS: 개발 시 클라이언트(Vite 등)에서 API 호출 허용
 app.use(cors());

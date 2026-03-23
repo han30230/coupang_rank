@@ -14,7 +14,7 @@
 COUPANG_ACCESS_KEY=...
 COUPANG_SECRET_KEY=...
 COUPANG_SUB_ID=
-PORT=3015
+PORT=3025
 ```
 
 ## Run (dev)
@@ -26,7 +26,7 @@ cd ..
 npm run dev
 ```
 
-- Server: `http://localhost:3015`
+- Server: `http://localhost:3025`
 - Client: 터미널에 출력된 Vite URL로 접속
 
 ## Notes

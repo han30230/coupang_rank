@@ -166,7 +166,7 @@ export default function App() {
       const isNetworkErr = err.message?.includes('fetch') || err.message?.includes('Failed') || err.name === 'TypeError';
       setError(
         isNetworkErr
-          ? '백엔드 서버에 연결할 수 없습니다. 프로젝트 루트에서 "npm run dev"를 실행해 주세요. (서버: 3015, 클라이언트: 5173)'
+          ? '백엔드 서버에 연결할 수 없습니다. 프로젝트 루트에서 "npm run dev"를 실행해 주세요. (서버: 3025, 클라이언트: 5173)'
           : err.message || '네트워크 오류가 발생했습니다. 서버가 실행 중인지 확인해 주세요.'
       );
       setProducts([]);
