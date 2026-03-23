@@ -212,20 +212,24 @@ app.get('*', (req, res, next) => {
   res.sendFile(indexHtml);
 });
 
-const server = app.listen(PORT, () => {
-  console.log('[Server] listening on http://localhost:' + PORT);
-  if (!process.env.COUPANG_ACCESS_KEY || !process.env.COUPANG_SECRET_KEY) {
-    console.warn('[Server] COUPANG_ACCESS_KEY / COUPANG_SECRET_KEY 가 설정되지 않았습니다. API 호출 시 오류가 발생합니다.');
-  }
-});
+if (require.main === module) {
+  const server = app.listen(PORT, () => {
+    console.log('[Server] listening on http://localhost:' + PORT);
+    if (!process.env.COUPANG_ACCESS_KEY || !process.env.COUPANG_SECRET_KEY) {
+      console.warn('[Server] COUPANG_ACCESS_KEY / COUPANG_SECRET_KEY 가 설정되지 않았습니다. API 호출 시 오류가 발생합니다.');
+    }
+  });
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error('[Server] 포트 ' + PORT + ' 이(가) 이미 사용 중입니다.');
-    console.error('해결: PowerShell에서 아래 명령으로 해당 프로세스를 종료하세요.');
-    console.error('  netstat -ano | findstr :' + PORT);
-    console.error('  taskkill /PID <PID번호> /F');
-    process.exit(1);
-  }
-  throw err;
-});
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error('[Server] 포트 ' + PORT + ' 이(가) 이미 사용 중입니다.');
+      console.error('해결: PowerShell에서 아래 명령으로 해당 프로세스를 종료하세요.');
+      console.error('  netstat -ano | findstr :' + PORT);
+      console.error('  taskkill /PID <PID번호> /F');
+      process.exit(1);
+    }
+    throw err;
+  });
+}
+
+module.exports = app;

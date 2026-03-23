@@ -7,7 +7,9 @@
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const DB_PATH = path.join(__dirname, 'data.sqlite');
+const DB_PATH = process.env.VERCEL
+  ? path.join('/tmp', 'data.sqlite')
+  : path.join(__dirname, 'data.sqlite');
 const db = new Database(DB_PATH);
 
 // 성능/안정성 설정
